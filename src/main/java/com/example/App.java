@@ -21,7 +21,6 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
-import javafx.scene.shape.StrokeType;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 
@@ -35,16 +34,16 @@ import java.util.Random;
 public class App extends Application {
     int emitcnt = 0;
     Random rnd = new Random();
-    double[] firstclick = new double[2];
+    ArrayList<double[]> clicks = new ArrayList<double[]>();
     ArrayList<Lighter> lights = new ArrayList<Lighter>();
     ArrayList<Foton> fotons = new ArrayList<Foton>();
     ArrayList<Counter> counters = new ArrayList<Counter>();
+    ArrayList<Bezier> curves = new ArrayList<Bezier>();
 
     @Override
     public void start(Stage stage) throws IOException {
 
-        firstclick[0] = -1;
-        firstclick[1] = -1;
+
 
         //prepare window
         stage.setMaximized(true);
@@ -62,13 +61,25 @@ public class App extends Application {
         //prepare tools
             //bezier
             Tool bezier = new Tool("bezier", new Image("file:resources/beziericon2.png"));
-            Rebinder bezRebinder = new Rebinder(pane, bezier);
+            Rebinder bezRebinder = new Rebinder(pane, bezier, clicks);
             bezier.setOnAction(bezRebinder);
             toolbox.getChildren().add(bezier);
-
+                bezier.click = new EventHandler<MouseEvent>() {
+                    @Override
+                    public void handle(MouseEvent event) {
+                        if(event.getButton() == MouseButton.PRIMARY){
+                            clicks.add(new double[]{event.getSceneX(),event.getSceneY()});
+                        }
+                        else if(event.getButton() == MouseButton.MIDDLE){
+                            while(clicks.size() > 6) clicks.remove(0);
+                            curves.add(new Bezier(clicks, pane));
+                        }              
+                    }
+                };
+            
             //light
             Tool light = new Tool("light", new Image("file:resources/lighticon4.png"));
-            Rebinder lightRebinder = new Rebinder(pane, light);
+            Rebinder lightRebinder = new Rebinder(pane, light, clicks);
             light.setOnAction(lightRebinder);
             toolbox.getChildren().add(light);
                 light.click = new EventHandler<MouseEvent>() {
@@ -84,8 +95,10 @@ public class App extends Application {
                             for(Lighter l: lights){
                                 if((l.x-x)*(l.x-x) + (l.y-y)*(l.y-y) < 6) toremove = l;
                             }
-                            pane.getChildren().remove(toremove);
-                            lights.remove(toremove);
+                            if(toremove != null){
+                                pane.getChildren().remove(toremove);
+                                lights.remove(toremove);
+                            }
                         }
                     }
                 };
@@ -96,28 +109,50 @@ public class App extends Application {
             
                 //counter
             Tool counter = new Tool("counter", new Image("file:resources/countericon.png"));
-            Rebinder cntRebinder = new Rebinder(pane, counter);
+            Rebinder cntRebinder = new Rebinder(pane, counter, clicks);
             counter.setOnAction(cntRebinder);
             toolbox.getChildren().add(counter);
                 counter.press = new EventHandler<MouseEvent>() {
                     @Override
                     public void handle(MouseEvent event) {
-                        firstclick[0] = event.getSceneX();
-                        firstclick[1] = event.getSceneY();
+                        if(event.getButton() == MouseButton.PRIMARY){
+                            clicks.add(new double[]{event.getSceneX(),event.getSceneY()});;
+                        }
                     }
                 };
                 counter.release = new EventHandler<MouseEvent>() {
                     @Override
                     public void handle(MouseEvent event) {
-                        counters.add(new Counter(firstclick[0], firstclick[1],
-                        event.getSceneX(), event.getSceneY(), pane));
+                        if(event.getButton() == MouseButton.PRIMARY){
+                            counters.add(new Counter(clicks.get(0)[0], clicks.get(0)[1],
+                            event.getSceneX(), event.getSceneY(), pane));
+                        }
+                        clicks.clear();
+                    }
+                };
+                counter.click = new  EventHandler<MouseEvent>() {
+                    @Override
+                    public void handle(MouseEvent event) {
+                        if(event.getButton() == MouseButton.SECONDARY){
+                            double x = event.getSceneX(), y = event.getSceneY();
+                            Counter toremove = null;
+                            for(Counter i : counters){
+                                if((i.start.getCenterX() - x)*(i.start.getCenterX() - x) + (i.start.getCenterY() - y)*(i.start.getCenterY() - y) < 3 ||
+                                (i.end.getCenterX() - x)*(i.end.getCenterX() - x) + (i.end.getCenterY() - y)*(i.end.getCenterY() - y) < 3){
+                                    toremove = i;
+                                }
+                            }
+                            if(toremove != null){
+                                toremove.deinit();
+                                counters.remove(toremove);
+                            }
+                        }
                     }
                 };
 
-
             //nulltool
             Tool nulltool = new Tool("nulltool", new Image("file:resources/nulltoolicon.png"));
-            Rebinder nullRebinder = new Rebinder(pane, nulltool);
+            Rebinder nullRebinder = new Rebinder(pane, nulltool, clicks);
             nulltool.setOnAction(nullRebinder);
             toolbox.getChildren().add(nulltool);
 
@@ -191,9 +226,12 @@ class Tool extends Button{
 class Rebinder implements EventHandler<ActionEvent>{
     Tool tool;
     Pane pane;
-    Rebinder(Pane pane, Tool tool){
+    ArrayList<double[]> clicks;
+
+    Rebinder(Pane pane, Tool tool, ArrayList<double[]> clicks){
         this.pane = pane;
         this.tool = tool;
+        this.clicks = clicks;
     }
     
     @Override
@@ -203,6 +241,7 @@ class Rebinder implements EventHandler<ActionEvent>{
         pane.setOnMouseDragged(tool.drag);
         pane.setOnMouseMoved(tool.move);
         pane.setOnMouseReleased(tool.release);
+        clicks.clear();
     }
 }
 
@@ -237,7 +276,23 @@ class Lighter extends Circle{
 }
 
 class Bezier{
+    Circle[] points = new Circle[]{null, null, null, null, null, null};
+    Pane pane;
 
+    Bezier(ArrayList<double[]> points, Pane pane){
+        for(int i=0; i < points.size(); ++i){
+            this.points[i] = new Circle(points.get(i)[0], points.get(i)[1], 3, Color.BLUE);
+            pane.getChildren().add(this.points[i]);
+            this.pane = pane;
+        }
+        points.clear();   
+    }
+
+    void deinit(){
+        for(int i=0; i < 6; ++i){
+            if(points[i] != null) pane.getChildren().remove(this.points[i]);
+        }
+    }
 }
 
 class Counter extends Line{
@@ -245,9 +300,11 @@ class Counter extends Line{
     int numpoints;
     int[] cntrs;
     Circle[] points;
+    Pane pane;
     
     Counter(double x1, double y1, double x2, double y2, Pane pane){
         super(x1, y1, x2, y2);
+        this.pane = pane;
         super.setStroke(Color.RED);
         start = new Circle(x1, y1, 3, Color.RED);
         end = new Circle(x2, y2, 3, Color.RED);
@@ -263,5 +320,14 @@ class Counter extends Line{
         pane.getChildren().add(this);
         pane.getChildren().add(start);
         pane.getChildren().add(end);
+    }
+
+    void deinit(){
+        for(int i = 0; i < numpoints; ++i){
+            pane.getChildren().remove(points[i]);
+        }
+        pane.getChildren().remove(start);
+        pane.getChildren().remove(end);
+        pane.getChildren().remove(this);
     }
 }
