@@ -183,12 +183,12 @@ public class App extends Application {
                     }
                     else{
                         Line nearest = null;
-                        double nearestd = 10;
+                        double nearestd = 1000;
                         for(Bezier b : curves){
                             for(Line l: b.lines){
                                 double dist = (f.x-(l.getStartX()+l.getEndX())/2)*(f.x-(l.getStartX()+l.getEndX())/2) 
                                             + (f.y-(l.getStartY()+l.getEndY())/2)*(f.y-(l.getStartY()+l.getEndY())/2);
-                                if(dist < 30 && dist < nearestd){
+                                if(dist < 50 && dist < nearestd){
                                     nearest = l;
                                     nearestd = dist;
                                 }
@@ -202,6 +202,9 @@ public class App extends Application {
                             double changepart = (tvx*nx + tvy*ny)/(nx*nx + ny*ny);
                             f.vx = tx*constpart -nx*changepart;
                             f.vy = ty*constpart - ny*changepart;
+                            double vmod = Math.sqrt(f.vx*f.vx + f.vy*f.vy);
+                            f.vx *= 2/vmod;
+                            f.vy *= 2/vmod;
                             f.move();
                         }
                     }
@@ -305,7 +308,7 @@ class Lighter extends Circle{
     double x, y;
     Lighter(double x, double y){
         super(x, y, 5, Color.valueOf("yellow"));
-        bright = 10;
+        bright = 50;
         this.x = x;
         this.y = y;
     }
