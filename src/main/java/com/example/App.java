@@ -181,6 +181,30 @@ public class App extends Application {
                     if(f.x < 0 || f.x > stage.getWidth() || f.y  < 0|| f.y > stage.getHeight()){
                         toremove.add(f);
                     }
+                    else{
+                        Line nearest = null;
+                        double nearestd = 10;
+                        for(Bezier b : curves){
+                            for(Line l: b.lines){
+                                double dist = (f.x-(l.getStartX()+l.getEndX())/2)*(f.x-(l.getStartX()+l.getEndX())/2) 
+                                            + (f.y-(l.getStartY()+l.getEndY())/2)*(f.y-(l.getStartY()+l.getEndY())/2);
+                                if(dist < 30 && dist < nearestd){
+                                    nearest = l;
+                                    nearestd = dist;
+                                }
+                            }
+                        }
+                        if(nearest != null){
+                            double tx= nearest.getStartX()-nearest.getEndX(), ty=(nearest.getStartY()-nearest.getEndY());
+                            double nx=-ty, ny=tx; //вектор нормали в точке касания
+                            double tvx = f.vx, tvy = f.vy;
+                            double constpart = (tvx*tx + tvy*ty)/(tx*tx+ty*ty);
+                            double changepart = (tvx*nx + tvy*ny)/(nx*nx + ny*ny);
+                            f.vx = tx*constpart -nx*changepart;
+                            f.vy = ty*constpart - ny*changepart;
+                            f.move();
+                        }
+                    }
                 }
                 for(Foton f: toremove){
                     fotons.remove(f);
