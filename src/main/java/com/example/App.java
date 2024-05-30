@@ -77,7 +77,22 @@ public class App extends Application {
                             if(clicks.size() >1){
                                 curves.add(new Bezier(clicks, pane));
                             }
-                        }              
+                        }  
+                        else if(event.getButton() == MouseButton.SECONDARY){
+                            double x = event.getSceneX(), y = event.getSceneY();
+                            Bezier toremove = null;
+                            for(Bezier c : curves){
+                                if((c.points[0].getCenterX() - x)*(c.points[0].getCenterX() - x) + (c.points[0].getCenterY() - y)*(c.points[0].getCenterY() - y) < 10 ||
+                                (c.points[c.order-1].getCenterX() - x)*(c.points[c.order-1].getCenterX() - x) + (c.points[c.order-1].getCenterY() - y)*(c.points[c.order-1].getCenterY() - y) < 10){
+                                    toremove = c;
+                                }
+                            }
+                            if(toremove != null){
+                                toremove.deinit();
+                                curves.remove(toremove);
+                            }
+                        }
+
                     }
                 };
                 bezier.drag = null;
@@ -147,8 +162,8 @@ public class App extends Application {
                             double x = event.getSceneX(), y = event.getSceneY();
                             Counter toremove = null;
                             for(Counter i : counters){
-                                if((i.start.getCenterX() - x)*(i.start.getCenterX() - x) + (i.start.getCenterY() - y)*(i.start.getCenterY() - y) < 3 ||
-                                (i.end.getCenterX() - x)*(i.end.getCenterX() - x) + (i.end.getCenterY() - y)*(i.end.getCenterY() - y) < 3){
+                                if((i.start.getCenterX() - x)*(i.start.getCenterX() - x) + (i.start.getCenterY() - y)*(i.start.getCenterY() - y) < 10 ||
+                                (i.end.getCenterX() - x)*(i.end.getCenterX() - x) + (i.end.getCenterY() - y)*(i.end.getCenterY() - y) < 10){
                                     toremove = i;
                                 }
                             }
@@ -209,6 +224,7 @@ public class App extends Application {
                         }
                     }
                 }
+
                 for(Foton f: toremove){
                     fotons.remove(f);
                     pane.getChildren().remove(f);
@@ -348,6 +364,9 @@ class Bezier{
     void deinit(){
         for(int i=0; i < 6; ++i){
             if(points[i] != null) pane.getChildren().remove(this.points[i]);
+        }
+        for (int i = 0; i < 101; ++i){
+            pane.getChildren().remove(lines[i]);
         }
     }
 
