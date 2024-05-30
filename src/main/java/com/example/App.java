@@ -7,6 +7,7 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
@@ -63,6 +64,7 @@ public class App extends Application {
             Tool bezier = new Tool("bezier", new Image("file:resources/beziericon2.png"));
             Rebinder bezRebinder = new Rebinder(pane, bezier, clicks);
             bezier.setOnAction(bezRebinder);
+            bezier.setTooltip(new Tooltip("Рисуйте кривую Безье\nподдерживается максимум 6 точек\nЛКМ - расстановка точек\nСКМ - построение кривой"));
             toolbox.getChildren().add(bezier);
                 bezier.click = new EventHandler<MouseEvent>() {
                     @Override
@@ -72,15 +74,22 @@ public class App extends Application {
                         }
                         else if(event.getButton() == MouseButton.MIDDLE){
                             while(clicks.size() > 6) clicks.remove(0);
-                            curves.add(new Bezier(clicks, pane));
+                            if(clicks.size() >1){
+                                curves.add(new Bezier(clicks, pane));
+                            }
                         }              
                     }
                 };
+                bezier.drag = null;
+                bezier.move = null;
+                bezier.press = null;
+                bezier.release = null;
             
             //light
             Tool light = new Tool("light", new Image("file:resources/lighticon4.png"));
             Rebinder lightRebinder = new Rebinder(pane, light, clicks);
             light.setOnAction(lightRebinder);
+            light.setTooltip(new Tooltip("Расставляйте светильники\nЛКМ - поставить светильник\nПКМ - убрать светильник"));
             toolbox.getChildren().add(light);
                 light.click = new EventHandler<MouseEvent>() {
                     @Override
@@ -111,6 +120,7 @@ public class App extends Application {
             Tool counter = new Tool("counter", new Image("file:resources/countericon.png"));
             Rebinder cntRebinder = new Rebinder(pane, counter, clicks);
             counter.setOnAction(cntRebinder);
+            counter.setTooltip(new Tooltip("Специальный инструмент\nдля подсчета фотонов"));
             toolbox.getChildren().add(counter);
                 counter.press = new EventHandler<MouseEvent>() {
                     @Override
@@ -154,12 +164,14 @@ public class App extends Application {
             Tool nulltool = new Tool("nulltool", new Image("file:resources/nulltoolicon.png"));
             Rebinder nullRebinder = new Rebinder(pane, nulltool, clicks);
             nulltool.setOnAction(nullRebinder);
+            nulltool.setTooltip(new Tooltip("Пустой инструмент, чтобы\nничего не испортить"));
             toolbox.getChildren().add(nulltool);
 
             //switch
             ToggleButton switchButton = new ToggleButton();
             switchButton.setGraphic(new ImageView(new Image("file:resources/switchicon.png")));
             toolbox.getChildren().add(switchButton);
+            switchButton.setTooltip(new Tooltip("Включайте/выключайте генерацию фотонов"));
 
             //foton emitter
             Timeline mover = new Timeline(new KeyFrame(Duration.millis(50), ev -> {
@@ -277,14 +289,32 @@ class Lighter extends Circle{
 
 class Bezier{
     Circle[] points = new Circle[]{null, null, null, null, null, null};
+    Line[] lines = new Line[101];
+    ArrayList<double[]> dots = new ArrayList<double[]>();
+    int order;
     Pane pane;
 
     Bezier(ArrayList<double[]> points, Pane pane){
+        order = points.size();
         for(int i=0; i < points.size(); ++i){
             this.points[i] = new Circle(points.get(i)[0], points.get(i)[1], 3, Color.BLUE);
             pane.getChildren().add(this.points[i]);
             this.pane = pane;
         }
+
+        //drawing bezier curve with 100 points
+        dots.add(new double[]{points.get(0)[0], points.get(0)[1]});
+        for(int k = 1; k <101; ++k){
+            dots.add(getPoint(k/101.0, points));
+        }
+        dots.add(new double[]{points.get(order-1)[0], points.get(order-1)[1]});
+
+        for (int i = 0; i < 101; ++i){
+            lines[i] = new Line(dots.get(i)[0],dots.get(i)[1], dots.get(i+1)[0],dots.get(i+1)[1]);
+            lines[i].setStroke(Color.BLUE);
+            pane.getChildren().add(lines[i]);
+        }
+
         points.clear();   
     }
 
@@ -292,6 +322,22 @@ class Bezier{
         for(int i=0; i < 6; ++i){
             if(points[i] != null) pane.getChildren().remove(this.points[i]);
         }
+    }
+
+    private double[] getPoint(double k, ArrayList<double[]> points){
+        ArrayList<double[]> tpoints = new ArrayList<double[]>();
+        for(double[] i : points){
+            tpoints.add(new double[]{i[0], i[1]});
+        }
+        while(tpoints.size() > 1){
+            ArrayList<double[]> t = new ArrayList<double[]>();
+            for( int i = 0; i < tpoints.size() - 1; ++i){
+                t.add(new double[]{ tpoints.get(i)[0] * (1-k) + tpoints.get(i+1)[0] *k,
+                                    tpoints.get(i)[1] * (1-k) + tpoints.get(i+1)[1] *k});
+            }
+            tpoints = t;
+        }
+        return tpoints.get(0);
     }
 }
 
