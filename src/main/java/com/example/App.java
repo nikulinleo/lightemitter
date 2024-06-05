@@ -358,7 +358,7 @@ class Lighter extends Circle{
 
     Lighter(double x, double y, Group group){
         super(x, y, 5, Color.valueOf("yellow"));
-        bright = 5000;
+        bright = 500;
         this.x = x;
         this.y = y;
         this.group = group;
