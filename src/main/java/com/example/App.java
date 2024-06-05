@@ -4,6 +4,7 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.beans.value.ChangeListener;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -47,7 +48,13 @@ public class App extends Application {
         stage.setMaximized(true);
         MaxX = stage.getWidth();
         MaxY = stage.getHeight();
-        stage.setTitle("LightEmitter v0.1");
+        ChangeListener<Number> stageSizeListener = (observable, oldValue, newValue) ->{
+            MaxX = stage.getWidth();
+            MaxY = stage.getHeight();
+        };
+        stage.widthProperty().addListener(stageSizeListener);
+        stage.heightProperty().addListener(stageSizeListener);
+        stage.setTitle("LightEmitter v0.2");
         stage.getIcons().add(new Image("file:resources/lighticon4.png"));
         BorderPane pane = new BorderPane();
         pane.setBackground(new Background(new BackgroundFill(Color.valueOf("#232323"), null, null))); 
@@ -80,7 +87,7 @@ public class App extends Application {
             Tool bezier = new Tool("bezier", new Image("file:resources/beziericon2.png"));
             Rebinder bezRebinder = new Rebinder(pane, bezier, clicks);
             bezier.setOnAction(bezRebinder);
-            bezier.setTooltip(new Tooltip("Рисуйте кривую Безье\nподдерживается максимум 6 точек\nЛКМ - расстановка точек\nСКМ - построение кривой"));
+            bezier.setTooltip(new Tooltip("Рисуйте кривую Безье\nподдерживается максимум 6 точек\nЛКМ - расстановка точек\nСКМ - построение кривой\nПКМ по начальной или конечной точке - удаление кривой"));
             toolbox.getChildren().add(bezier);
                 bezier.click = new EventHandler<MouseEvent>() {
                     @Override
@@ -213,7 +220,7 @@ public class App extends Application {
 
         //foton emitter
         ArrayList<Foton> toremove = new ArrayList<Foton>();
-            Timeline mover = new Timeline(new KeyFrame(Duration.millis(50), ev -> {
+            Timeline mover = new Timeline(new KeyFrame(Duration.millis(25), ev -> {
                 toremove.clear();
                 for(Foton f : fotons){
                     if(f.x < 0 || f.x > MaxX || f.y  < 0|| f.y > MaxY){
@@ -221,14 +228,16 @@ public class App extends Application {
                     }
                     else{
                         PointWithTan nearest = null;
-                        double nearestd = 1000, dist;
+                        double nearestd = 1000, dist, dx, dy;
                         for(Bezier b : curves){
                             if(f.x < b.maxx && f.x > b.minx){
                                 for(PointWithTan l: b.points){
-                                    if(l.x < f.x - 1.5 || l.x > f.x + 1.5) continue;
-                                    dist = (f.x-l.x)*(f.x-l.x) 
-                                                + (f.y-l.y)*(f.y-l.y);
-                                    if(dist < 1.5 && dist < nearestd){
+                                    dx = l.x - f.x;
+                                    dy = l.y - f.y;
+                                    if(dx < - 1.5 || dx > 1.5) continue;
+                                    if(dy < - 1.5 || dy > 1.5) continue;
+                                    dist = dx*dx + dy*dy;
+                                    if(dist < 2 && dist < nearestd){
                                         nearest = l;
                                         nearestd = dist;
                                     }
@@ -244,8 +253,8 @@ public class App extends Application {
                             f.vx = tx*constpart - nx*changepart;
                             f.vy = ty*constpart - ny*changepart;
                             double vmod = Math.sqrt(f.vx*f.vx + f.vy*f.vy);
-                            f.vx *= 2/vmod;
-                            f.vy *= 2/vmod;
+                            f.vx /= vmod;
+                            f.vy /= vmod;
                         }
                         f.move();
                     }
@@ -262,13 +271,13 @@ public class App extends Application {
                             for(int i = 0; i < l.bright; ++i){
                                 double a = rnd.nextDouble() * 2 * Math.PI;
                                 fotons.add(new Foton(l.x, l.y,
-                                Math.cos(a)*2, Math.sin(a)*2, fotonsGroup));
+                                Math.cos(a), Math.sin(a), fotonsGroup));
                             }
                         }
                     }
                 }
                 emitcnt++;
-                emitcnt%=100;
+                emitcnt%=10;
             }));
             mover.setCycleCount(Animation.INDEFINITE);
             mover.play();
@@ -358,7 +367,7 @@ class Lighter extends Circle{
 
     Lighter(double x, double y, Group group){
         super(x, y, 5, Color.valueOf("yellow"));
-        bright = 500;
+        bright = 50;
         this.x = x;
         this.y = y;
         this.group = group;
