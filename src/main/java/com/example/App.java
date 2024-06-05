@@ -4,6 +4,7 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ToggleButton;
@@ -29,38 +30,53 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
 
+import com.example.Bezier.PointWithTan;
+
 /**
  * JavaFX App
  */
 public class App extends Application {
-    int emitcnt = 0;
     Random rnd = new Random();
     ArrayList<double[]> clicks = new ArrayList<double[]>();
-    ArrayList<Lighter> lights = new ArrayList<Lighter>();
-    ArrayList<Foton> fotons = new ArrayList<Foton>();
-    ArrayList<Counter> counters = new ArrayList<Counter>();
-    ArrayList<Bezier> curves = new ArrayList<Bezier>();
+    int emitcnt = 0;
+    double MaxX, MaxY;
 
     @Override
     public void start(Stage stage) throws IOException {
-
-
-
         //prepare window
         stage.setMaximized(true);
+        MaxX = stage.getWidth();
+        MaxY = stage.getHeight();
         stage.setTitle("LightEmitter v0.1");
         stage.getIcons().add(new Image("file:resources/lighticon4.png"));
-
-        //prepare toolbox
         BorderPane pane = new BorderPane();
         pane.setBackground(new Background(new BackgroundFill(Color.valueOf("#232323"), null, null))); 
+        Scene scene = new Scene(pane);
+        stage.setScene(scene);
+        
+        //prepare groups for objects
+        Group curvesGroup = new Group(), lightersGroup = new Group(), fotonsGroup = new Group(), countersGroup = new Group();
+        pane.getChildren().add(curvesGroup);
+        pane.getChildren().add(lightersGroup);
+        pane.getChildren().add(countersGroup);
+        pane.getChildren().add(fotonsGroup);
+
+        //prepare arrays for ojects
+        ArrayList<Bezier> curves  = new ArrayList<Bezier>();
+        ArrayList<Lighter> lighters  = new ArrayList<Lighter>();
+        ArrayList<Counter> counters  = new ArrayList<Counter>();
+        ArrayList<Foton> fotons  = new ArrayList<Foton>();
+
+
+        //prepare toolbox
         VBox toolbox = new VBox();
         toolbox.setOpacity(1);
         toolbox.setBackground(new Background(new BackgroundFill(Color.valueOf("#535353"), null, null)));
         pane.setLeft(toolbox);;
 
         //prepare tools
-            //bezier
+        //bezier
+        {
             Tool bezier = new Tool("bezier", new Image("file:resources/beziericon2.png"));
             Rebinder bezRebinder = new Rebinder(pane, bezier, clicks);
             bezier.setOnAction(bezRebinder);
@@ -75,15 +91,15 @@ public class App extends Application {
                         else if(event.getButton() == MouseButton.MIDDLE){
                             while(clicks.size() > 6) clicks.remove(0);
                             if(clicks.size() >1){
-                                curves.add(new Bezier(clicks, pane));
+                                curves.add(new Bezier(clicks, curvesGroup));
                             }
                         }  
                         else if(event.getButton() == MouseButton.SECONDARY){
                             double x = event.getSceneX(), y = event.getSceneY();
                             Bezier toremove = null;
                             for(Bezier c : curves){
-                                if((c.points[0].getCenterX() - x)*(c.points[0].getCenterX() - x) + (c.points[0].getCenterY() - y)*(c.points[0].getCenterY() - y) < 10 ||
-                                (c.points[c.order-1].getCenterX() - x)*(c.points[c.order-1].getCenterX() - x) + (c.points[c.order-1].getCenterY() - y)*(c.points[c.order-1].getCenterY() - y) < 10){
+                                if((c.control_points.get(0).getCenterX() - x)*(c.control_points.get(0).getCenterX() - x) + (c.control_points.get(0).getCenterY() - y)*(c.control_points.get(0).getCenterY() - y) < 100 ||
+                                (c.control_points.get(c.order - 1).getCenterX() - x)*(c.control_points.get(c.order - 1).getCenterX() - x) + (c.control_points.get(c.order - 1).getCenterY() - y)*(c.control_points.get(c.order - 1).getCenterY() - y) < 100){
                                     toremove = c;
                                 }
                             }
@@ -92,15 +108,16 @@ public class App extends Application {
                                 curves.remove(toremove);
                             }
                         }
-
                     }
                 };
                 bezier.drag = null;
                 bezier.move = null;
                 bezier.press = null;
                 bezier.release = null;
+        }
             
-            //light
+        //light
+        
             Tool light = new Tool("light", new Image("file:resources/lighticon4.png"));
             Rebinder lightRebinder = new Rebinder(pane, light, clicks);
             light.setOnAction(lightRebinder);
@@ -110,18 +127,17 @@ public class App extends Application {
                     @Override
                     public void handle(MouseEvent event) {
                         if(event.getButton() == MouseButton.PRIMARY){
-                            lights.add(new Lighter(event.getSceneX(), event.getSceneY()));
-                            pane.getChildren().add(lights.get(lights.size() - 1));
+                            lighters.add(new Lighter(event.getSceneX(), event.getSceneY(), lightersGroup));
                         }
                         else if(event.getButton() == MouseButton.SECONDARY){
                             double x = event.getSceneX(), y = event.getSceneY();
                             Lighter toremove = null;
-                            for(Lighter l: lights){
-                                if((l.x-x)*(l.x-x) + (l.y-y)*(l.y-y) < 6) toremove = l;
+                            for(Lighter l: lighters){
+                                if((l.x-x)*(l.x-x) + (l.y-y)*(l.y-y) < 36) toremove = l;
                             }
                             if(toremove != null){
-                                pane.getChildren().remove(toremove);
-                                lights.remove(toremove);
+                                toremove.deinit();
+                                lighters.remove(toremove);
                             }
                         }
                     }
@@ -130,8 +146,10 @@ public class App extends Application {
                 light.move = null;
                 light.press = null;
                 light.release = null;
-            
-                //counter
+        
+        
+        //counter
+        
             Tool counter = new Tool("counter", new Image("file:resources/countericon.png"));
             Rebinder cntRebinder = new Rebinder(pane, counter, clicks);
             counter.setOnAction(cntRebinder);
@@ -150,7 +168,7 @@ public class App extends Application {
                     public void handle(MouseEvent event) {
                         if(event.getButton() == MouseButton.PRIMARY){
                             counters.add(new Counter(clicks.get(0)[0], clicks.get(0)[1],
-                            event.getSceneX(), event.getSceneY(), pane));
+                            event.getSceneX(), event.getSceneY(), countersGroup));
                         }
                         clicks.clear();
                     }
@@ -174,79 +192,87 @@ public class App extends Application {
                         }
                     }
                 };
+        
 
-            //nulltool
+        //nulltool
+        
             Tool nulltool = new Tool("nulltool", new Image("file:resources/nulltoolicon.png"));
             Rebinder nullRebinder = new Rebinder(pane, nulltool, clicks);
             nulltool.setOnAction(nullRebinder);
             nulltool.setTooltip(new Tooltip("Пустой инструмент, чтобы\nничего не испортить"));
             toolbox.getChildren().add(nulltool);
+            
 
-            //switch
+        //switch
+        
             ToggleButton switchButton = new ToggleButton();
             switchButton.setGraphic(new ImageView(new Image("file:resources/switchicon.png")));
             toolbox.getChildren().add(switchButton);
             switchButton.setTooltip(new Tooltip("Включайте/выключайте генерацию фотонов"));
+        
 
-            //foton emitter
+        //foton emitter
+        ArrayList<Foton> toremove = new ArrayList<Foton>();
             Timeline mover = new Timeline(new KeyFrame(Duration.millis(50), ev -> {
-                ArrayList<Foton> toremove = new ArrayList<Foton>();
+                toremove.clear();
                 for(Foton f : fotons){
-                    f.move();
-                    if(f.x < 0 || f.x > stage.getWidth() || f.y  < 0|| f.y > stage.getHeight()){
+                    if(f.x < 0 || f.x > MaxX || f.y  < 0|| f.y > MaxY){
                         toremove.add(f);
                     }
                     else{
-                        Line nearest = null;
-                        double nearestd = 1000;
+                        PointWithTan nearest = null;
+                        double nearestd = 1000, dist;
                         for(Bezier b : curves){
-                            for(Line l: b.lines){
-                                double dist = (f.x-(l.getStartX()+l.getEndX())/2)*(f.x-(l.getStartX()+l.getEndX())/2) 
-                                            + (f.y-(l.getStartY()+l.getEndY())/2)*(f.y-(l.getStartY()+l.getEndY())/2);
-                                if(dist < 50 && dist < nearestd){
-                                    nearest = l;
-                                    nearestd = dist;
+                            if(f.x < b.maxx && f.x > b.minx){
+                                for(PointWithTan l: b.points){
+                                    if(l.x < f.x - 1.5 || l.x > f.x + 1.5) continue;
+                                    dist = (f.x-l.x)*(f.x-l.x) 
+                                                + (f.y-l.y)*(f.y-l.y);
+                                    if(dist < 1.5 && dist < nearestd){
+                                        nearest = l;
+                                        nearestd = dist;
+                                    }
                                 }
                             }
                         }
                         if(nearest != null){
-                            double tx= nearest.getStartX()-nearest.getEndX(), ty=(nearest.getStartY()-nearest.getEndY());
+                            double tx = nearest.tx, ty= nearest.ty;
                             double nx=-ty, ny=tx; //вектор нормали в точке касания
                             double tvx = f.vx, tvy = f.vy;
-                            double constpart = (tvx*tx + tvy*ty)/(tx*tx+ty*ty);
-                            double changepart = (tvx*nx + tvy*ny)/(nx*nx + ny*ny);
-                            f.vx = tx*constpart -nx*changepart;
+                            double constpart = (tvx*tx + tvy*ty);
+                            double changepart = (tvx*nx + tvy*ny);
+                            f.vx = tx*constpart - nx*changepart;
                             f.vy = ty*constpart - ny*changepart;
                             double vmod = Math.sqrt(f.vx*f.vx + f.vy*f.vy);
                             f.vx *= 2/vmod;
                             f.vy *= 2/vmod;
-                            f.move();
                         }
+                        f.move();
                     }
                 }
 
                 for(Foton f: toremove){
+                    f.deinit();
                     fotons.remove(f);
-                    pane.getChildren().remove(f);
                 }
 
                 if(emitcnt == 0){
                     if(switchButton.isSelected()){
-                        for(Lighter l : lights){
+                        for(Lighter l : lighters){
                             for(int i = 0; i < l.bright; ++i){
-                                double a = rnd.nextDouble()* 2 * Math.PI;
+                                double a = rnd.nextDouble() * 2 * Math.PI;
                                 fotons.add(new Foton(l.x, l.y,
-                                Math.cos(a)*2, Math.sin(a)*2));
-                                pane.getChildren().add(fotons.get(fotons.size()-1));
+                                Math.cos(a)*2, Math.sin(a)*2, fotonsGroup));
                             }
                         }
                     }
                 }
                 emitcnt++;
-                emitcnt%=5;
+                emitcnt%=100;
             }));
             mover.setCycleCount(Animation.INDEFINITE);
             mover.play();
+        
 
         //bind actions due to tool
         pane.setOnMouseClicked(null);
@@ -256,8 +282,6 @@ public class App extends Application {
         pane.setOnMouseReleased(null);
 
         //show everything
-        Scene scene = new Scene(pane);
-        stage.setScene(scene);
         stage.show();
     }
 
@@ -302,12 +326,16 @@ class Rebinder implements EventHandler<ActionEvent>{
 
 class Foton extends Circle{
     double x, y, vx, vy;
-    Foton(double x, double y, double vx, double vy){
+    Group group;
+
+    Foton(double x, double y, double vx, double vy, Group group){
         super(x, y, 1, Color.valueOf("yellow"));
         this.x = x;
         this.y = y;
         this.vx = vx;
         this.vy = vy;
+        this.group = group;
+        group.getChildren().add(this);
     }
 
     void move(){
@@ -317,86 +345,128 @@ class Foton extends Circle{
         this.setCenterX(x);
         this.setCenterY(y);
     }
+
+    void deinit(){
+        group.getChildren().remove(this);
+    };
 }
 
 class Lighter extends Circle{
     int bright;
     double x, y;
-    Lighter(double x, double y){
+    Group group;
+
+    Lighter(double x, double y, Group group){
         super(x, y, 5, Color.valueOf("yellow"));
-        bright = 50;
+        bright = 5000;
         this.x = x;
         this.y = y;
+        this.group = group;
+
+        group.getChildren().add(this);
+    }
+
+    void deinit(){
+        group.getChildren().remove(this);
     }
 }
 
 class Bezier{
-    Circle[] points = new Circle[]{null, null, null, null, null, null};
-    Line[] lines = new Line[101];
-    ArrayList<double[]> dots = new ArrayList<double[]>();
+    ArrayList<Circle> control_points = new ArrayList<Circle>();
+    ArrayList<PointWithTan> points = new ArrayList<PointWithTan>();
+    double minx, maxx;
     int order;
-    Pane pane;
+    Group group;
 
-    Bezier(ArrayList<double[]> points, Pane pane){
-        order = points.size();
-        for(int i=0; i < points.size(); ++i){
-            this.points[i] = new Circle(points.get(i)[0], points.get(i)[1], 3, Color.BLUE);
-            pane.getChildren().add(this.points[i]);
-            this.pane = pane;
+    class PointWithTan extends Circle{
+        double x, y, tx, ty;
+
+        PointWithTan(double x, double y, double tx, double ty){
+            super(x, y, 0.5, Color.BLUE);
+            double tl = Math.sqrt(tx*tx + ty*ty);
+            this.x = x;
+            this.y = y;
+            this.tx = tx / tl;
+            this.ty = ty / tl;
         }
+    }
 
-        //drawing bezier curve with 100 points
-        dots.add(new double[]{points.get(0)[0], points.get(0)[1]});
-        for(int k = 1; k <101; ++k){
-            dots.add(getPoint(k/101.0, points));
+    Bezier(ArrayList<double[]> control_points, Group group){
+        order = control_points.size();
+        for(double[] p : control_points){
+            this.control_points.add(new Circle(p[0], p[1], 2, Color.BLUE));
         }
-        dots.add(new double[]{points.get(order-1)[0], points.get(order-1)[1]});
+        this.group = group;
 
-        for (int i = 0; i < 101; ++i){
-            lines[i] = new Line(dots.get(i)[0],dots.get(i)[1], dots.get(i+1)[0],dots.get(i+1)[1]);
-            lines[i].setStroke(Color.BLUE);
-            pane.getChildren().add(lines[i]);
+        //drawing bezier curve with points, distance < 1
+        points.add(new PointWithTan(control_points.get(0)[0], control_points.get(0)[1], control_points.get(1)[0], control_points.get(1)[1]));
+        double LeftP = 0, lastx = control_points.get(0)[0], lasty = control_points.get(0)[1];
+        while(LeftP < 1){
+            double k;
+            for(k = 1; true; k = LeftP + (k - LeftP) / 2){
+                double[] p = getPointWithTan(k, control_points);
+                if((p[0]-lastx)*(p[0]-lastx) + (p[1]-lasty)*(p[1]-lasty) < 1) {
+                    points.add(new PointWithTan(p[0], p[1], p[2]-p[0], p[3]-p[1]));
+                    lastx = p[0]; 
+                    lasty = p[1];
+                    LeftP = k;       
+                    break;
+                }
+            }
         }
+        points.add(new PointWithTan(control_points.get(control_points.size()-1)[0], control_points.get(control_points.size()-1)[1], control_points.get(control_points.size()-2)[0], control_points.get(control_points.size()-2)[1]));
 
-        points.clear();   
+        points.sort((PointWithTan a, PointWithTan b)->(a.getCenterX() > b.getCenterX() ? 1: -1));
+        
+        minx = points.get(0).getCenterX();
+        maxx = points.get(points.size()-1).getCenterX();
+
+        control_points.clear();
+        
+        for(PointWithTan i : points){
+            group.getChildren().add(i);
+        }
+        for(Circle i : this.control_points){
+            group.getChildren().add(i);
+        }
     }
 
     void deinit(){
-        for(int i=0; i < 6; ++i){
-            if(points[i] != null) pane.getChildren().remove(this.points[i]);
+        for(PointWithTan i : points){
+            group.getChildren().remove(i);
         }
-        for (int i = 0; i < 101; ++i){
-            pane.getChildren().remove(lines[i]);
+        for(Circle i : this.control_points){
+            group.getChildren().remove(i);
         }
     }
 
-    private double[] getPoint(double k, ArrayList<double[]> points){
+    private double[] getPointWithTan(double k, ArrayList<double[]> points){
         ArrayList<double[]> tpoints = new ArrayList<double[]>();
+        
         for(double[] i : points){
             tpoints.add(new double[]{i[0], i[1]});
         }
-        while(tpoints.size() > 1){
-            ArrayList<double[]> t = new ArrayList<double[]>();
-            for( int i = 0; i < tpoints.size() - 1; ++i){
-                t.add(new double[]{ tpoints.get(i)[0] * (1-k) + tpoints.get(i+1)[0] *k,
-                                    tpoints.get(i)[1] * (1-k) + tpoints.get(i+1)[1] *k});
+        
+        for(int i = points.size()-1; i > 0; i--){
+            for(int j = 0; j < i; j++){
+                tpoints.get(j)[0] = tpoints.get(j)[0] * (1-k) + tpoints.get(j+1)[0] * k;
+                tpoints.get(j)[1] = tpoints.get(j)[1] * (1-k) + tpoints.get(j+1)[1] * k;
             }
-            tpoints = t;
         }
-        return tpoints.get(0);
+        return new double[]{tpoints.get(0)[0], tpoints.get(0)[1], tpoints.get(1)[0], tpoints.get(1)[1]};
     }
 }
 
-class Counter extends Line{
+class Counter extends Line{ 
     Circle start, end;
     int numpoints;
     int[] cntrs;
     Circle[] points;
-    Pane pane;
+    Group group;
     
-    Counter(double x1, double y1, double x2, double y2, Pane pane){
+    Counter(double x1, double y1, double x2, double y2, Group group){
         super(x1, y1, x2, y2);
-        this.pane = pane;
+        this.group = group;
         super.setStroke(Color.RED);
         start = new Circle(x1, y1, 3, Color.RED);
         end = new Circle(x2, y2, 3, Color.RED);
@@ -407,19 +477,19 @@ class Counter extends Line{
             tx = (x1 * i + x2*(numpoints+1-i)) / (numpoints+1),
             ty = (y1 * i + y2*(numpoints+1-i)) / (numpoints+1); 
             points[i-1] = new Circle(tx, ty, 1.5, Color.RED);
-            pane.getChildren().add(points[i-1]);
+            group.getChildren().add(points[i-1]);
         }
-        pane.getChildren().add(this);
-        pane.getChildren().add(start);
-        pane.getChildren().add(end);
+        group.getChildren().add(this);
+        group.getChildren().add(start);
+        group.getChildren().add(end);
     }
 
     void deinit(){
         for(int i = 0; i < numpoints; ++i){
-            pane.getChildren().remove(points[i]);
+            group.getChildren().remove(points[i]);
         }
-        pane.getChildren().remove(start);
-        pane.getChildren().remove(end);
-        pane.getChildren().remove(this);
+        group.getChildren().remove(start);
+        group.getChildren().remove(end);
+        group.getChildren().remove(this);
     }
 }
